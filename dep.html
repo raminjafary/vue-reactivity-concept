@@ -1,0 +1,45 @@
+<script>
+  let activeEffect = null;
+
+  class Dep {
+    constructor(value) {
+      this._value = value;
+      this.subscribers = new Set();
+    }
+
+    depend() {
+      if (activeEffect) {
+        this.subscribers.add(activeEffect);
+      }
+    }
+
+    get value() {
+      this.depend();
+      return this._value;
+    }
+
+    set value(val) {
+      this._value = val;
+      this.notify();
+    }
+
+    notify() {
+      this.subscribers.forEach((effect) => effect());
+    }
+  }
+
+  const dep = new Dep("ramin");
+
+  function watchEffect(effect) {
+    activeEffect = effect;
+    effect();
+    activeEffect = null;
+  }
+
+  watchEffect(() => {
+    console.log(dep.value);
+  });
+  setTimeout(() => {
+    dep.value = "ram";
+  }, 2000);
+</script>

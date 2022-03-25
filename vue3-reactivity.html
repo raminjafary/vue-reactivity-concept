@@ -1,0 +1,93 @@
+<script>
+  const targetMap = new WeakMap();
+  let activeEffect = null;
+
+  function track(target, key) {
+    if (activeEffect) {
+      let depsMap = targetMap.get(target);
+      if (!depsMap) {
+        targetMap.set(target, (depsMap = new Map()));
+      }
+
+      let dep = depsMap.get(key);
+      if (!dep) {
+        depsMap.set(key, (dep = new Set()));
+      }
+
+      dep.add(activeEffect);
+    }
+  }
+
+  function trigger(target, key) {
+    const depsMap = targetMap.get(target);
+    if (!depsMap) {
+      return;
+    }
+    let dep = depsMap.get(key);
+
+    dep.forEach((effect) => {
+      effect();
+    });
+  }
+
+  function reactive(target) {
+    const handler = {
+      get(target, key, reciever) {
+        const result = Reflect.get(target, key, reciever);
+        track(target, key);
+        return result;
+      },
+      set(target, key, value, reciever) {
+        const oldValue = target[key];
+        const result = Reflect.set(target, key, value, reciever);
+        if (oldValue !== result) {
+          trigger(target, key);
+        }
+        return result;
+      },
+    };
+    return new Proxy(target, handler);
+  }
+
+  function ref(raw) {
+    const obj = {
+      get value() {
+        track(obj, "value");
+        return raw;
+      },
+      set(val) {
+        raw = val;
+        trigger(obj, "value");
+      },
+    };
+    return obj;
+  }
+
+  function computed(getter) {
+    const reuslt = ref();
+
+    effect(() => (result.value = getter()));
+
+    return result;
+  }
+
+  const product = reactive({
+    count: 0,
+  });
+
+  function effect(ef) {
+    activeEffect = ef;
+    activeEffect();
+    activeEffect = null;
+  }
+
+  let total = 0;
+
+  effect(() => {
+    total = product.count * 5;
+  });
+  console.log(total);
+
+  product.count = 5;
+  console.log(total);
+</script>

@@ -1,0 +1,159 @@
+<div id="app"></div>
+
+<script>
+  let activeEffect = null;
+
+  class Dep {
+    subscribers = new Set();
+
+    depend() {
+      if (activeEffect) {
+        this.subscribers.add(activeEffect);
+      }
+    }
+
+    notify() {
+      this.subscribers.forEach((effect) => effect());
+    }
+  }
+
+  const dep = new Dep("ramin");
+
+  function watchEffect(effect) {
+    activeEffect = effect;
+    effect();
+    activeEffect = null;
+  }
+
+  function h(tag, props, children) {
+    return {
+      tag,
+      props,
+      children,
+    };
+  }
+
+  function mount(vnode, container) {
+    const tag = vnode.tag;
+    const el = (vnode.el = document.createElement(tag));
+
+    if (vnode.props) {
+      for (const key in vnode.props) {
+        const value = vnode.props[key];
+        if (key.startsWith("on")) {
+          el.addEventListener(key.slice(2).toLowerCase(), value);
+        } else {
+          el.setAttribute(key, value);
+        }
+      }
+    }
+
+    if (vnode.children) {
+      if (typeof vnode.children === "string") {
+        el.textContent = vnode.children;
+      } else {
+        vnode.children.forEach((child) => {
+          mount(child, el);
+        });
+      }
+    }
+
+    container.appendChild(el);
+  }
+
+  function patch(oldVnode, newVnode) {
+    const el = (newVnode.el = oldVnode.el);
+
+    if (oldVnode.tag === newVnode.tag) {
+      const oldProps = oldVnode.props || {};
+      const newProps = newVnode.props || {};
+
+      for (const key in newProps) {
+        const oldValue = oldProps[key];
+        const newValue = newProps[key];
+
+        if (oldValue !== newValue) {
+          el.setAttribute(key, newValue);
+        }
+      }
+
+      for (const key in oldProps) {
+        if (!(key in newProps)) {
+          el.removeAttribute(key);
+        }
+      }
+
+      const oldChildren = oldVnode.children;
+      const newChildren = newVnode.children;
+
+      if (typeof newChildren === "string") {
+        if (typeof oldChildren === "string") {
+          if (newChildren !== oldChildren) {
+            el.textContent = newChildren;
+          }
+        } else {
+          el.textContent = newChildren;
+        }
+      } else {
+        if (typeof oldChildren === "string") {
+          el.innerHTML = "";
+          newChildren.forEach((child) => {
+            mount(child, el);
+          });
+        } else {
+          const commonLength = Math.min(oldChildren.length, newChildren.length);
+          for (let i = 0; i < commonLength; i++) {
+            patch(oldChildren[i], newChildren[i]);
+          }
+
+          if (newChildren.length > oldChildren.length) {
+            newChildren.slice(oldChildren.length).forEach((child) => {
+              mount(child, el);
+            });
+          } else if (newChildren.length < oldChildren.length) {
+            oldChildren.slice(newChildren.length).forEach((child) => {
+              e.removeChild(child.el);
+            });
+          }
+        }
+      }
+    } else {
+    }
+  }
+
+  const App = {
+    data: reactive({
+      count: 0,
+    }),
+    render() {
+      return h(
+        "div",
+        {
+          onClick() {
+            this.data.count++;
+          },
+        },
+        String(this.data.count)
+      );
+    },
+  };
+
+  function mountApp(component, container) {
+    let isMounted = false;
+    let prevVdom = null;
+
+    watchEffect(() => {
+      if (!isMounted) {
+        prevVdom = component.render();
+        mount(prevVdom, container);
+        isMounted = true;
+      } else {
+        const newVdom = component.render();
+        patch(prevVdom, newVdom);
+        preVdom = newVdom;
+      }
+    });
+  }
+
+  mountApp(app, document.getElementById("app"));
+</script>

@@ -1,0 +1,98 @@
+<script>
+  let activeEffect = null;
+
+  class Dep {
+    constructor(value) {
+      this._value = value;
+      this.subscribers = new Set();
+    }
+
+    depend() {
+      if (activeEffect) {
+        this.subscribers.add(activeEffect);
+      }
+    }
+
+    notify() {
+      this.subscribers.forEach((effect) => effect());
+    }
+  }
+
+  const dep = new Dep("ramin");
+
+  function watchEffect(effect) {
+    activeEffect = effect;
+    effect();
+    activeEffect = null;
+  }
+
+  function reactive2(raw) {
+    Object.keys(raw).forEach((key) => {
+      const dep = new Dep();
+      let value = raw[key];
+
+      Object.defineProperty(raw, key, {
+        get() {
+          dep.depend();
+          return value;
+        },
+
+        set(val) {
+          value = val;
+          dep.notify();
+        },
+      });
+    });
+
+    return raw;
+  }
+
+  const targetMaps = new WeakMap();
+
+  function getDep(target, key) {
+    let depsMap = targetMaps.get(target);
+
+    if (!depsMap) {
+      depsMap = new Map();
+      targetMaps.set(target, depsMap);
+    }
+
+    let dep = depsMap.get(key);
+
+    if (!dep) {
+      dep = new Dep();
+      depsMap.set(key, dep);
+    }
+
+    return dep;
+  }
+
+  const reactiveHandlers = {
+    get(target, key, reciever) {
+      const dep = getDep(target, key);
+      dep.depend();
+      return Reflect.get(target, key, reciever);
+    },
+
+    set(target, key, value, reciever) {
+      const dep = getDep(target, key);
+      const result = Reflect.set(target, key, value, reciever);
+      dep.notify();
+      return result;
+    },
+  };
+
+  function reactive(raw) {
+    return new Proxy(raw, reactiveHandlers);
+  }
+
+  const state = reactive({
+    count: 0,
+  });
+
+  watchEffect(() => {
+    console.log(state.count);
+  });
+
+  state.count = 2;
+</script>
